@@ -1,0 +1,7 @@
+.env
+vendor
+storage/logs/*
+bootstrap/cache/*.php
+database/*.sqlite
+# Laravel recreates this runtime storage link inside the container.
+public/storage

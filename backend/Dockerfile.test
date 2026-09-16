@@ -1,0 +1,9 @@
+FROM astraproject-api:latest
+
+# Keep test-only packages out of the runtime image while providing a fast,
+# reproducible PHP/MySQL/SQLite environment for CI and local verification.
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+COPY tests tests
+COPY .env.example .env
+
+CMD ["vendor/bin/phpunit"]

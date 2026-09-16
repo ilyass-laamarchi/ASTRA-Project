@@ -1,0 +1,57 @@
+services:
+  # MySQL persists development data in a named volume. Containers reach it as "database:3306".
+  database:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: astra
+      MYSQL_USER: astra
+      MYSQL_PASSWORD: astra_local_password
+      MYSQL_ROOT_PASSWORD: astra_root_local_password
+    ports: ["3306:3306"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes: ["astra_mysql:/var/lib/mysql"]
+  # Laravel REST API exposed to the host browser on http://127.0.0.1:8000.
+  api:
+    build: ./backend
+    image: astraproject-api:latest
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      PHP_CLI_SERVER_WORKERS: 4
+    ports: ["8000:8000"]
+    volumes:
+      - "astra_public_storage:/app/storage/app/public"
+    depends_on:
+      database: {condition: service_healthy}
+  # Laravel Reverb WebSocket server used by Echo for live reservation updates.
+  reverb:
+    image: astraproject-api:latest
+    restart: unless-stopped
+    env_file: ./backend/.env
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports: ["8080:8080"]
+    volumes:
+      - "astra_public_storage:/app/storage/app/public"
+    depends_on:
+      database: {condition: service_healthy}
+  # Vite development server. The source bind mount enables immediate Vue updates.
+  frontend:
+    image: node:24-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "if [ ! -x node_modules/.bin/vite ]; then npm install; fi; exec npm run dev -- --host 0.0.0.0"
+    volumes:
+      - "./frontend:/app"
+      - "astra_frontend_node_modules:/app/node_modules"
+    ports: ["5173:5173"]
+    depends_on: [api, reverb]
+volumes:
+  # Named volumes survive container recreation and Docker restarts.
+  astra_mysql:
+  astra_public_storage:
+  astra_frontend_node_modules:
